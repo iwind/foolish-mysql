@@ -1,4 +1,4 @@
-# Install MySQL server as a fool
+# Install MySQL server like a fool
 
 ~~~bash
 # we will install the latest mysql 8
