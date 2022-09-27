@@ -1,7 +1,7 @@
-# Install MySQL server like a fool
+# Install MySQL Community Server like a fool
 
 ~~~bash
-# we will install the latest mysql 8
+# we will download and install the latest mysql 8
 ./foolish-mysql
 
  # instead, we install from compressed tar archive file
