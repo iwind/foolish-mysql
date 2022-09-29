@@ -11,6 +11,15 @@ import (
 )
 
 func main() {
+	var args = os.Args
+	if len(args) > 1 {
+		var cmd = args[1]
+		if cmd == "-v" || cmd == "--version" || cmd == "version" {
+			fmt.Println(installers.Version)
+			return
+		}
+	}
+
 	var installer = installers.NewFoolishInstaller()
 	var targetDir = "/usr/local/mysql"
 
@@ -25,7 +34,6 @@ func main() {
 		}
 	}
 
-	var args = os.Args
 	var xzFile string
 	if len(args) == 1 {
 		xzFile, err = installer.Download()
