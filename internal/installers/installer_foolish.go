@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -59,6 +60,20 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 		cmdPath, err := exec.LookPath(cmd)
 		if err != nil || len(cmdPath) == 0 {
 			return errors.New("could not find '" + cmd + "' command in this system")
+		}
+	}
+
+	// ubuntu apt
+	aptExe, err := exec.LookPath("apt")
+	if err == nil && len(aptExe) > 0 {
+		for _, lib := range []string{"libaio1", "libncurses5"} {
+			this.log("checking " + lib + " ...")
+			var cmd = utils.NewCmd("apt", "-y", "install", lib)
+			cmd.WithStderr()
+			err = cmd.Run()
+			if err != nil {
+				return errors.New("install " + lib + " failed: " + cmd.Stderr())
+			}
 		}
 	}
 
@@ -262,6 +277,17 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 		if err != nil {
 			return errors.New("start failed '" + cmd.String() + "': " + cmd.Stderr())
 		}
+
+		// waiting for startup
+		for i := 0; i < 5; i++ {
+			_, err = net.Dial("tcp", "127.0.0.1:3306")
+			if err != nil {
+				time.Sleep(1 * time.Second)
+			} else {
+				break
+			}
+		}
+		time.Sleep(1 * time.Second)
 	}
 
 	// change password
@@ -272,18 +298,12 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 
 	this.log("changing mysql password ...")
 	var passwordSQL = "ALTER USER 'root'@'localhost' IDENTIFIED BY '" + newPassword + "';"
-	var changePasswordTries = 3
-	for i := 0; i < changePasswordTries; i++ {
+	{
 		var cmd = utils.NewCmd("sh", "-c", baseDir+"/bin/mysql --user=root --password=\""+generatedPassword+"\" --execute=\""+passwordSQL+"\" --connect-expired-password")
 		cmd.WithStderr()
 		err = cmd.Run()
 		if err != nil {
-			if i == changePasswordTries-1 {
-
-				return errors.New("change password failed: " + cmd.String() + ": " + cmd.Stderr())
-			} else {
-				time.Sleep(1 * time.Second)
-			}
+			return errors.New("change password failed: " + cmd.String() + ": " + cmd.Stderr())
 		}
 	}
 	this.password = newPassword
@@ -349,7 +369,7 @@ func (this *FoolishInstaller) Download() (path string, err error) {
 
 	// download
 	this.log("start downloading ...")
-	var downloadURL = "https://cdn.mysql.com//Downloads/MySQL-8.0/mysql-" + latestVersion + "-linux-glibc2.17-x86_64-minimal.tar.xz"
+	var downloadURL = "https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-" + latestVersion + "-linux-glibc2.17-x86_64-minimal.tar.xz"
 
 	{
 		req, err := http.NewRequest(http.MethodGet, downloadURL, nil)
