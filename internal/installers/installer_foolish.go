@@ -254,7 +254,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 	}
 
 	// move to right place
-	this.log("move files to target dir ...")
+	this.log("moving files to target dir ...")
 	err = os.Rename(baseDir, targetDir)
 	if err != nil {
 		return errors.New("move '" + baseDir + "' to '" + targetDir + "' failed: " + err.Error())
