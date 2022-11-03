@@ -74,6 +74,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 			if err != nil {
 				return errors.New("install " + lib + " failed: " + cmd.Stderr())
 			}
+			time.Sleep(1 * time.Second)
 		}
 	}
 
@@ -447,6 +448,13 @@ port=3306
 basedir="` + baseDir + `"
 datadir="` + dataDir + `"
 
+max_connections=256
+innodb_flush_log_at_trx_commit=2
+max_prepared_stmt_count=65535
+binlog_cache_size=1M
+binlog_stmt_cache_size=1M
+thread_cache_size=32
+binlog_expire_logs_seconds=1209600
 `
 }
 
