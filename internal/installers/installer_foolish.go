@@ -53,9 +53,20 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 		}
 	}
 
+	// check 'tar' command
+	this.log("checking 'tar' command ...")
+	var tarExe, _ = exec.LookPath("tar")
+	if len(tarExe) == 0 {
+		this.log("installing 'tar' command ...")
+		err = this.installTarCommand()
+		if err != nil {
+			this.log("WARN: failed to install 'tar' ...")
+		}
+	}
+
 	// check commands
 	this.log("checking system commands ...")
-	var cmdList = []string{"tar", "groupadd", "useradd", "chown", "sh"}
+	var cmdList = []string{"tar" /** again **/, "groupadd", "useradd", "chown", "sh"}
 	for _, cmd := range cmdList {
 		cmdPath, err := exec.LookPath(cmd)
 		if err != nil || len(cmdPath) == 0 {
@@ -317,6 +328,18 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 	// remove temporary directory
 	_ = os.Remove(tmpDir)
 
+	// create link to 'mysql' client command
+	var clientExe = "/usr/local/bin/mysql"
+	_, err = os.Stat(clientExe)
+	if err != nil && os.IsNotExist(err) {
+		err = os.Symlink(baseDir+"/bin/mysql", clientExe)
+		if err == nil {
+			this.log("created symbolic link '" + clientExe + "' to '" + baseDir + "/bin/mysql'")
+		} else {
+			this.log("WARN: failed to create symbolic link '" + clientExe + "' to '" + baseDir + "/bin/mysql': " + err.Error())
+		}
+	}
+
 	// install service
 	// this is not required, so we ignore all errors
 	err = this.installService(baseDir)
@@ -528,6 +551,25 @@ WantedBy=multi-user.target`
 	err = cmd.Run()
 	if err != nil {
 		return errors.New("enable mysqld.service failed: " + cmd.Stderr())
+	}
+
+	return nil
+}
+
+// install 'tar' command automatically
+func (this *FoolishInstaller) installTarCommand() error {
+	// yum
+	yumExe, err := exec.LookPath("yum")
+	if err == nil && len(yumExe) > 0 {
+		var cmd = utils.NewTimeoutCmd(10*time.Second, yumExe, "-y", "install", "tar")
+		return cmd.Run()
+	}
+
+	// apt
+	aptExe, err := exec.LookPath("apt")
+	if err == nil && len(aptExe) > 0 {
+		var cmd = utils.NewTimeoutCmd(10*time.Second, aptExe, "-y", "install", "tar")
+		return cmd.Run()
 	}
 
 	return nil
