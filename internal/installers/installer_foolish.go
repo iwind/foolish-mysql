@@ -41,7 +41,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 	this.log("checking target dir '" + targetDir + "' ...")
 	_, err := os.Stat(targetDir)
 	if err == nil {
-		// 检查是否为空
+		// check target dir
 		matches, _ := filepath.Glob(targetDir + "/*")
 		if len(matches) > 0 {
 			return errors.New("target dir '" + targetDir + "' already exists and not empty")
