@@ -66,12 +66,22 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 
 	// check commands
 	this.log("checking system commands ...")
-	var cmdList = []string{"tar" /** again **/, "groupadd", "useradd", "chown", "sh"}
+	var cmdList = []string{"tar" /** again **/, "chown", "sh"}
 	for _, cmd := range cmdList {
 		cmdPath, err := exec.LookPath(cmd)
 		if err != nil || len(cmdPath) == 0 {
 			return errors.New("could not find '" + cmd + "' command in this system")
 		}
+	}
+
+	groupAddExe, err := this.lookupGroupAdd()
+	if err != nil {
+		return errors.New("could not find 'groupadd' command in this system")
+	}
+
+	userAddExe, err := this.lookupUserAdd()
+	if err != nil {
+		return errors.New("could not find 'useradd' command in this system")
 	}
 
 	// ubuntu apt
@@ -87,6 +97,15 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 			}
 			time.Sleep(1 * time.Second)
 		}
+	} else { // yum
+		yumExe, err := exec.LookPath("yum")
+		if err == nil && len(yumExe) > 0 {
+			for _, lib := range []string{"ncurses-libs", "ncurses-compat-libs"} {
+				var cmd = utils.NewCmd("yum", "-y", "install", lib)
+				_ = cmd.Run()
+				time.Sleep(1 * time.Second)
+			}
+		}
 	}
 
 	// create 'mysql' user group
@@ -97,7 +116,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 			return errors.New("check user group failed: " + err.Error())
 		}
 		if !bytes.Contains(data, []byte("\nmysql:")) {
-			var cmd = utils.NewCmd("groupadd", "mysql")
+			var cmd = utils.NewCmd(groupAddExe, "mysql")
 			cmd.WithStderr()
 			err = cmd.Run()
 			if err != nil {
@@ -114,7 +133,12 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 			return errors.New("check user failed: " + err.Error())
 		}
 		if !bytes.Contains(data, []byte("\nmysql:")) {
-			var cmd = utils.NewCmd("useradd", "mysql", "-g", "mysql")
+			var cmd *utils.Cmd
+			if strings.HasSuffix(userAddExe, "useradd") {
+				cmd = utils.NewCmd(userAddExe, "mysql", "-g", "mysql")
+			} else { // adduser
+				cmd = utils.NewCmd(userAddExe, "-S", "-G", "mysql", "mysql")
+			}
 			cmd.WithStderr()
 			err = cmd.Run()
 			if err != nil {
@@ -357,14 +381,14 @@ func (this *FoolishInstaller) Download() (path string, err error) {
 
 	// check latest version
 	this.log("checking mysql latest version ...")
-	var latestVersion = ""
+	var latestVersion = "8.0.31" // 默认版本
 	{
 		req, err := http.NewRequest(http.MethodGet, "https://dev.mysql.com/downloads/mysql/", nil)
 		if err != nil {
 			return "", err
 		}
 
-		req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36")
+		req.Header.Set("User-Agent", "curl/7.61.1")
 		resp, err := client.Do(req)
 		if err != nil {
 			return "", errors.New("check latest version failed: " + err.Error())
@@ -373,21 +397,18 @@ func (this *FoolishInstaller) Download() (path string, err error) {
 			_ = resp.Body.Close()
 		}()
 
-		if resp.StatusCode != http.StatusOK {
-			return "", errors.New("check latest version failed: invalid response code: " + strconv.Itoa(resp.StatusCode))
-		}
+		if resp.StatusCode == http.StatusOK {
+			data, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return "", errors.New("read latest version failed: " + err.Error())
+			}
 
-		data, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return "", errors.New("read latest version failed: " + err.Error())
+			var reg = regexp.MustCompile(`<h1>MySQL Community Server ([\d.]+) </h1>`)
+			var matches = reg.FindSubmatch(data)
+			if len(matches) > 0 {
+				latestVersion = string(matches[1])
+			}
 		}
-
-		var reg = regexp.MustCompile(`<h1>MySQL Community Server ([\d.]+) </h1>`)
-		var matches = reg.FindSubmatch(data)
-		if len(matches) == 0 {
-			return "", errors.New("parse latest version failed, please report to developer")
-		}
-		latestVersion = string(matches[1])
 	}
 	this.log("found version: v" + latestVersion)
 
@@ -573,4 +594,24 @@ func (this *FoolishInstaller) installTarCommand() error {
 	}
 
 	return nil
+}
+
+func (this *FoolishInstaller) lookupGroupAdd() (string, error) {
+	for _, cmd := range []string{"groupadd", "addgroup"} {
+		path, err := exec.LookPath(cmd)
+		if err == nil && len(path) > 0 {
+			return path, nil
+		}
+	}
+	return "", errors.New("not found")
+}
+
+func (this *FoolishInstaller) lookupUserAdd() (string, error) {
+	for _, cmd := range []string{"useradd", "adduser"} {
+		path, err := exec.LookPath(cmd)
+		if err == nil && len(path) > 0 {
+			return path, nil
+		}
+	}
+	return "", errors.New("not found")
 }
