@@ -100,7 +100,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 	} else { // yum
 		yumExe, err := exec.LookPath("yum")
 		if err == nil && len(yumExe) > 0 {
-			for _, lib := range []string{"ncurses-libs", "ncurses-compat-libs"} {
+			for _, lib := range []string{"libaio", "ncurses-libs", "ncurses-compat-libs"} {
 				var cmd = utils.NewCmd("yum", "-y", "install", lib)
 				_ = cmd.Run()
 				time.Sleep(1 * time.Second)
