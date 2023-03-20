@@ -106,6 +106,29 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 				time.Sleep(1 * time.Second)
 			}
 		}
+
+		// create symbolic links
+		{
+			var libFile = "/usr/lib64/libncurses.so.5"
+			_, err = os.Stat(libFile)
+			if err != nil && os.IsNotExist(err) {
+				var latestLibFile = utils.FindLatestVersionFile("/usr/lib64", "libncurses.so.")
+				if len(latestLibFile) > 0 {
+					_ = os.Symlink(latestLibFile, libFile)
+				}
+			}
+		}
+
+		{
+			var libFile = "/usr/lib64/libtinfo.so.5"
+			_, err = os.Stat(libFile)
+			if err != nil && os.IsNotExist(err) {
+				var latestLibFile = utils.FindLatestVersionFile("/usr/lib64", "libtinfo.so.")
+				if len(latestLibFile) > 0 {
+					_ = os.Symlink(latestLibFile, libFile)
+				}
+			}
+		}
 	}
 
 	// create 'mysql' user group
@@ -498,7 +521,7 @@ max_prepared_stmt_count=65535
 binlog_cache_size=1M
 binlog_stmt_cache_size=1M
 thread_cache_size=32
-binlog_expire_logs_seconds=1209600
+binlog_expire_logs_seconds=604800
 `
 }
 
