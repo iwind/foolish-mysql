@@ -4,18 +4,19 @@ package installers
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"foolishmysql/internal/utils"
 	"io"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -114,6 +115,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 			if err != nil && os.IsNotExist(err) {
 				var latestLibFile = utils.FindLatestVersionFile("/usr/lib64", "libncurses.so.")
 				if len(latestLibFile) > 0 {
+					this.log("link '" + latestLibFile + "' to '" + libFile + "'")
 					_ = os.Symlink(latestLibFile, libFile)
 				}
 			}
@@ -125,6 +127,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 			if err != nil && os.IsNotExist(err) {
 				var latestLibFile = utils.FindLatestVersionFile("/usr/lib64", "libtinfo.so.")
 				if len(latestLibFile) > 0 {
+					this.log("link '" + latestLibFile + "' to '" + libFile + "'")
 					_ = os.Symlink(latestLibFile, libFile)
 				}
 			}
@@ -509,6 +512,15 @@ func (this *FoolishInstaller) Password() string {
 
 // create my.cnf content
 func (this *FoolishInstaller) createMyCnf(baseDir string, dataDir string) string {
+	var memoryTotalG = 1
+
+	if runtime.GOOS == "linux" {
+		memoryTotalG = utils.SysMemoryGB() / 2
+		if memoryTotalG <= 0 {
+			memoryTotalG = 1
+		}
+	}
+
 	return `
 [mysqld]
 port=3306
@@ -523,13 +535,12 @@ binlog_stmt_cache_size=1M
 thread_cache_size=32
 binlog_expire_logs_seconds=604800
 innodb_sort_buffer_size=8M
-`
+innodb_buffer_pool_size=` + strconv.Itoa(memoryTotalG) + "G"
 }
 
 // generate random password
 func (this *FoolishInstaller) generatePassword() (string, error) {
 	var p = make([]byte, 16)
-	rand.Seed(time.Now().UnixNano())
 	n, err := rand.Read(p)
 	if err != nil {
 		return "", err

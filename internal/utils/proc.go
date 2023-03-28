@@ -3,8 +3,10 @@
 package utils
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -30,6 +32,47 @@ func FindPidWithName(name string) int {
 			var pid = pieces[len(pieces)-2]
 			pidInt, _ := strconv.Atoi(pid)
 			return pidInt
+		}
+	}
+
+	return 0
+}
+
+func SysMemoryGB() int {
+	if runtime.GOOS != "linux" {
+		return 0
+	}
+	meminfoData, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0
+	}
+	for _, line := range bytes.Split(meminfoData, []byte{'\n'}) {
+		line = bytes.TrimSpace(line)
+		if bytes.Contains(line, []byte{':'}) {
+			name, value, found := bytes.Cut(line, []byte{':'})
+			if found {
+				name = bytes.TrimSpace(name)
+				if bytes.Equal(name, []byte("MemTotal")) {
+					for _, unit := range []string{"gB", "mB", "kB"} {
+						if bytes.Contains(value, []byte(unit)) {
+							value = bytes.TrimSpace(bytes.ReplaceAll(value, []byte(unit), nil))
+							valueInt, err := strconv.Atoi(string(value))
+							if err != nil {
+								return 0
+							}
+							switch unit {
+							case "gB":
+								return valueInt
+							case "mB":
+								return valueInt / 1024
+							case "kB":
+								return valueInt / 1024 / 1024
+							}
+							return 0
+						}
+					}
+				}
+			}
 		}
 	}
 
