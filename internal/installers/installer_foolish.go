@@ -341,7 +341,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 		}
 
 		// waiting for startup
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 30; i++ {
 			_, err = net.Dial("tcp", "127.0.0.1:3306")
 			if err != nil {
 				time.Sleep(1 * time.Second)
@@ -361,7 +361,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 	this.log("changing mysql password ...")
 	var passwordSQL = "ALTER USER 'root'@'localhost' IDENTIFIED BY '" + newPassword + "';"
 	{
-		var cmd = utils.NewCmd("sh", "-c", baseDir+"/bin/mysql --user=root --password=\""+generatedPassword+"\" --execute=\""+passwordSQL+"\" --connect-expired-password")
+		var cmd = utils.NewCmd("sh", "-c", baseDir+"/bin/mysql --host=\"127.0.0.1\"  --user=root --password=\""+generatedPassword+"\" --execute=\""+passwordSQL+"\" --connect-expired-password")
 		cmd.WithStderr()
 		err = cmd.Run()
 		if err != nil {
@@ -443,7 +443,7 @@ func (this *FoolishInstaller) Download() (path string, err error) {
 	var downloadURL = "https://cdn.mysql.com/Downloads/MySQL-8.1/mysql-" + latestVersion + "-linux-glibc2.17-x86_64-minimal.tar.xz"
 
 	{
-		this.log("downloading url '" + downloadURL + "' ...")
+		this.log("downloading from url '" + downloadURL + "' ...")
 		req, err := http.NewRequest(http.MethodGet, downloadURL, nil)
 		if err != nil {
 			return "", err
