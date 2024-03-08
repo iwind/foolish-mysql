@@ -309,7 +309,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 
 		// write password to file
 		var passwordFile = baseDir + "/generated-password.txt"
-		err = os.WriteFile(passwordFile, []byte(generatedPassword), 0666)
+		err = os.WriteFile(passwordFile, []byte(generatedPassword + "\n"), 0666)
 		if err != nil {
 			return errors.New("write password failed: " + err.Error())
 		}
@@ -446,8 +446,6 @@ func (this *FoolishInstaller) Download() (path string, err error) {
 	// download
 	this.log("start downloading ...")
 
-
-
 	var downloadURL = "https://cdn.mysql.com/Downloads/MySQL-" + majorVersion + "/mysql-" + latestVersion + "-linux-glibc2.17-x86_64-minimal.tar.xz"
 
 	{
@@ -575,6 +573,12 @@ func (this *FoolishInstaller) installService(baseDir string) error {
 
 	this.log("registering systemd service ...")
 
+	var startCmd = "${BASE_DIR}/support-files/mysql.server start"
+	bashPath, _ := exec.LookPath("bash")
+	if len(bashPath) > 0 {
+		startCmd = bashPath + " -c \"" + startCmd + "\""
+	}
+
 	var desc = `### BEGIN INIT INFO
 # Provides: mysql
 # Required-Start: $local_fs $network $remote_fs
@@ -596,7 +600,7 @@ Type=simple
 Restart=on-failure
 RestartSec=5s
 RemainAfterExit=yes
-ExecStart=${BASE_DIR}/support-files/mysql.server start
+ExecStart=` + startCmd + `
 ExecStop=${BASE_DIR}/support-files/mysql.server stop
 ExecRestart=${BASE_DIR}/support-files/mysql.server restart
 ExecStatus=${BASE_DIR}/support-files/mysql.server status
