@@ -595,6 +595,7 @@ After=network-online.target
 Type=simple
 Restart=on-failure
 RestartSec=5s
+RemainAfterExit=yes
 ExecStart=${BASE_DIR}/support-files/mysql.server start
 ExecStop=${BASE_DIR}/support-files/mysql.server stop
 ExecRestart=${BASE_DIR}/support-files/mysql.server restart
