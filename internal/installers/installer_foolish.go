@@ -86,15 +86,25 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 	}
 
 	// ubuntu apt
-	aptExe, err := exec.LookPath("apt")
-	if err == nil && len(aptExe) > 0 {
+	aptGetExe, err := exec.LookPath("apt-get")
+	if err == nil && len(aptGetExe) > 0 {
 		for _, lib := range []string{"libaio1", "libncurses5"} {
 			this.log("checking " + lib + " ...")
-			var cmd = utils.NewCmd("apt", "-y", "install", lib)
+			var cmd = utils.NewCmd(aptGetExe, "-y", "install", lib)
 			cmd.WithStderr()
 			err = cmd.Run()
 			if err != nil {
-				return errors.New("install " + lib + " failed: " + cmd.Stderr())
+				// try apt
+				aptExe, aptErr := exec.LookPath("apt")
+				if aptErr == nil && len(aptExe) > 0 {
+					cmd = utils.NewCmd(aptExe, "-y", "install", lib)
+					cmd.WithStderr()
+					err = cmd.Run()
+				}
+
+				if err != nil {
+					return errors.New("install " + lib + " failed: " + cmd.Stderr())
+				}
 			}
 			time.Sleep(1 * time.Second)
 		}
@@ -309,7 +319,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 
 		// write password to file
 		var passwordFile = baseDir + "/generated-password.txt"
-		err = os.WriteFile(passwordFile, []byte(generatedPassword + "\n"), 0666)
+		err = os.WriteFile(passwordFile, []byte(generatedPassword+"\n"), 0666)
 		if err != nil {
 			return errors.New("write password failed: " + err.Error())
 		}
@@ -342,10 +352,12 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 
 		// waiting for startup
 		for i := 0; i < 30; i++ {
-			_, err = net.Dial("tcp", "127.0.0.1:3306")
+			var conn net.Conn
+			conn, err = net.Dial("tcp", "127.0.0.1:3306")
 			if err != nil {
 				time.Sleep(1 * time.Second)
 			} else {
+				_ = conn.Close()
 				break
 			}
 		}
@@ -628,6 +640,13 @@ WantedBy=multi-user.target`
 
 // install 'tar' command automatically
 func (this *FoolishInstaller) installTarCommand() error {
+	// dnf
+	dnfExe, err := exec.LookPath("dnf")
+	if err == nil && len(dnfExe) > 0 {
+		var cmd = utils.NewTimeoutCmd(10*time.Second, dnfExe, "-y", "install", "tar")
+		return cmd.Run()
+	}
+
 	// yum
 	yumExe, err := exec.LookPath("yum")
 	if err == nil && len(yumExe) > 0 {
@@ -635,11 +654,19 @@ func (this *FoolishInstaller) installTarCommand() error {
 		return cmd.Run()
 	}
 
-	// apt
-	aptExe, err := exec.LookPath("apt")
-	if err == nil && len(aptExe) > 0 {
-		var cmd = utils.NewTimeoutCmd(10*time.Second, aptExe, "-y", "install", "tar")
-		return cmd.Run()
+	// apt-get
+	aptGetExe, err := exec.LookPath("apt-get")
+	if err == nil && len(aptGetExe) > 0 {
+		var cmd = utils.NewTimeoutCmd(10*time.Second, aptGetExe, "-y", "install", "tar")
+		err = cmd.Run()
+		if err != nil {
+			aptExe, aptErr := exec.LookPath("apt")
+			if aptErr == nil {
+				cmd = utils.NewTimeoutCmd(10*time.Second, aptExe, "-y", "install", "tar")
+				err = cmd.Run()
+			}
+		}
+		return err
 	}
 
 	return nil
