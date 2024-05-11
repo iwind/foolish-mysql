@@ -88,7 +88,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 	// ubuntu apt
 	aptGetExe, err := exec.LookPath("apt-get")
 	if err == nil && len(aptGetExe) > 0 {
-		for _, lib := range []string{"libaio1", "libncurses5", "libnuma"} {
+		for _, lib := range []string{"libaio1", "libncurses5", "libnuma1"} {
 			this.log("checking " + lib + " ...")
 			var cmd = utils.NewCmd(aptGetExe, "-y", "install", lib)
 			cmd.WithStderr()
@@ -103,7 +103,7 @@ func (this *FoolishInstaller) InstallFromFile(xzFilePath string, targetDir strin
 				}
 
 				if err != nil {
-					if lib == "libnuma" {
+					if lib == "libnuma1" {
 						err = nil
 					} else {
 						return errors.New("install " + lib + " failed: " + cmd.Stderr())
